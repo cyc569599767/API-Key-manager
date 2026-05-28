@@ -5,7 +5,6 @@ import {
   BatchDeleteAPIKeys,
   BatchExportAPIKeys,
   BatchImportAPIKeys,
-  BatchTestAPIKeys,
   CreateAPIKey,
   GetCopyCredentials,
   DisableAPIKey,
@@ -54,7 +53,7 @@ const testing = ref(false)
 const saving = ref(false)
 const batchImporting = ref(false)
 const batchDeleting = ref(false)
-const batchTesting = ref(false)
+const rowTestingIds = ref<number[]>([])
 const batchExporting = ref(false)
 const backingUp = ref(false)
 const restoring = ref(false)
@@ -298,25 +297,42 @@ async function confirmBatchDelete() {
   }
 }
 
-async function runBatchTest() {
-  if (selectedIds.value.length === 0) return
-  const ids = [...selectedIds.value]
-  const confirmed = window.confirm(`确认测试勾选的 ${ids.length} 个 API Key？\n\n将按顺序测试，相邻两个 API Key 至少间隔 5 秒。`)
+async function confirmDeleteKey(id: number, name: string) {
+  const confirmed = window.confirm(`确认永久删除“${name}”？\n\n该操作会永久删除 API Key，并级联删除相关测试结果；操作不可恢复。`)
   if (!confirmed) return
 
-  batchTesting.value = true
+  batchDeleting.value = true
   errorMessage.value = ''
   try {
-    const result = await BatchTestAPIKeys({ ids } as model.BatchTestAPIKeysInput)
-    if (selectedKey.value && ids.includes(selectedKey.value.id)) {
-      selectedDetail.value = await GetAPIKeyDetail(selectedKey.value.id)
+    await BatchDeleteAPIKeys({ ids: [id] } as model.BatchDeleteAPIKeysInput)
+    selectedIds.value = selectedIds.value.filter((selectedId) => selectedId !== id)
+    if (selectedKey.value?.id === id) {
+      selectedDetail.value = null
     }
-    await Promise.all([refreshList(), refreshStats(), refreshAudits()])
-    errorMessage.value = `批量测试完成：成功 ${result.success} 个，失败 ${result.failed} 个${result.skipped ? `，跳过 ${result.skipped} 个` : ''}`
+    await Promise.all([refreshList(), refreshStats(), refreshAudits(), refreshFilterOptions()])
   } catch (error) {
     showError(error)
   } finally {
-    batchTesting.value = false
+    batchDeleting.value = false
+  }
+}
+
+async function runRowTest(id: number) {
+  if (rowTestingIds.value.includes(id)) return
+  rowTestingIds.value = [...rowTestingIds.value, id]
+  errorMessage.value = ''
+  try {
+    const detail = await TestAPIKey(id)
+    const index = keys.value.findIndex((key) => key.id === id)
+    if (index !== -1) {
+      keys.value[index] = detail.key
+    }
+    selectedDetail.value = detail
+    await Promise.all([refreshStats(), refreshAudits()])
+  } catch (error) {
+    showError(error)
+  } finally {
+    rowTestingIds.value = rowTestingIds.value.filter((testingId) => testingId !== id)
   }
 }
 
@@ -404,8 +420,13 @@ async function runTest() {
   testing.value = true
   errorMessage.value = ''
   try {
-    selectedDetail.value = await TestAPIKey(selectedKey.value.id)
-    await Promise.all([refreshList(), refreshStats(), refreshAudits()])
+    const detail = await TestAPIKey(selectedKey.value.id)
+    selectedDetail.value = detail
+    const index = keys.value.findIndex((key) => key.id === detail.key.id)
+    if (index !== -1) {
+      keys.value[index] = detail.key
+    }
+    await Promise.all([refreshStats(), refreshAudits()])
   } catch (error) {
     showError(error)
   } finally {
@@ -504,7 +525,6 @@ function auditTone(action: string) {
             <button class="secondary small" :disabled="selectedCount === 0 || batchExporting" @click="confirmBatchExport">{{ batchExporting ? '导出中...' : selectedCount ? `批量导出 (${selectedCount})` : '批量导出' }}</button>
             <button class="secondary small" @click="openBatchModal">批量导入</button>
             <button class="primary small" @click="openCreateModal">添加 Key</button>
-            <button class="secondary small" :disabled="selectedCount === 0 || batchTesting" @click="runBatchTest">{{ batchTesting ? '测试中...' : selectedCount ? `批量测试 (${selectedCount})` : '批量测试' }}</button>
           </div>
         </header>
         <div class="stats-row">
@@ -537,7 +557,7 @@ function auditTone(action: string) {
         <div class="table-wrap">
           <table>
             <thead>
-              <tr><th><input type="checkbox" :checked="allVisibleSelected" :disabled="keys.length === 0" @change="toggleSelectAllVisible" /></th><th>名称</th><th>所属分组</th><th>Provider</th><th>Base URL</th><th>状态</th></tr>
+              <tr><th><input type="checkbox" :checked="allVisibleSelected" :disabled="keys.length === 0" @change="toggleSelectAllVisible" /></th><th>名称</th><th>所属分组</th><th>Provider</th><th>Base URL</th><th>状态</th><th>操作</th></tr>
             </thead>
             <tbody>
               <tr v-for="key in keys" :key="key.id" :class="{ selected: selectedKey?.id === key.id }" @click="selectKey(key.id)">
@@ -547,8 +567,12 @@ function auditTone(action: string) {
                 <td>{{ key.provider }}</td>
                 <td class="mono">{{ key.baseUrl }}</td>
                 <td><span class="status" :class="key.status">{{ statusText(key.status) }}</span></td>
+                <td class="row-actions">
+                  <button class="small" :disabled="key.status === 'disabled' || rowTestingIds.includes(key.id)" @click.stop="runRowTest(key.id)">{{ rowTestingIds.includes(key.id) ? '测试中...' : '测试' }}</button>
+                  <button class="small danger-button" :disabled="batchDeleting" @click.stop="confirmDeleteKey(key.id, key.name)">删除</button>
+                </td>
               </tr>
-              <tr v-if="!loading && keys.length === 0"><td colspan="6" class="empty">暂无 API Key，点击“添加 Key”开始。</td></tr>
+              <tr v-if="!loading && keys.length === 0"><td colspan="7" class="empty">暂无 API Key，点击“添加 Key”开始。</td></tr>
             </tbody>
           </table>
         </div>
