@@ -434,10 +434,10 @@ async function runTest() {
   }
 }
 
-async function copyBaseURL() {
+async function copyAPIKey() {
   if (!selectedKey.value) return
-  const credentials = await GetCopyCredentials(selectedKey.value.id)
-  await ClipboardSetText(credentials)
+  const apiKey = await GetCopyCredentials(selectedKey.value.id)
+  await ClipboardSetText(apiKey)
   await refreshAudits()
 }
 
@@ -610,7 +610,7 @@ function auditTone(action: string) {
             </dl>
             <div class="detail-actions">
               <button class="primary" :disabled="testing || selectedKey.status === 'disabled'" @click="runTest">{{ testing ? '测试中...' : '立即测试' }}</button>
-              <button @click="copyBaseURL">复制 Base URL + API Key</button>
+              <button @click="copyAPIKey">复制 API Key</button>
               <button @click="openEditModal">编辑</button>
               <button class="danger-button" @click="toggleDisabled">{{ selectedKey.status === 'disabled' ? '启用' : '禁用' }}</button>
             </div>

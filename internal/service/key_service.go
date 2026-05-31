@@ -491,8 +491,8 @@ func (s *KeyService) GetCopyCredentials(id int64) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	_ = s.audit(&key.ID, "credentials.copied", key.Name+" 的 Base URL 和 API Key 已复制", nil)
-	return fmt.Sprintf("Base URL: %s\nAPI Key: %s", key.BaseURL, plaintext), nil
+	_ = s.audit(&key.ID, "credentials.copied", key.Name+" 的 API Key 已复制", nil)
+	return plaintext, nil
 }
 
 func (s *KeyService) audit(apiKeyID *int64, action string, summary string, metadata map[string]any) error {

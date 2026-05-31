@@ -165,7 +165,7 @@ dl { display: grid; grid-template-columns: 92px minmax(0, 1fr); gap: 12px 14px; 
 dt { color: var(--foreground-secondary); font-size: 13px; font-weight: 800; }
 dd { margin: 0; min-width: 0; overflow-wrap: anywhere; }
 .muted-box { background: var(--surface-muted); padding: 10px 12px; }
-.detail-actions { display: grid; grid-template-columns: 1fr; gap: 8px; margin-top: 14px; }
+.detail-actions { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; margin-top: 14px; }
 .detail-actions button, .modal footer button { background: var(--surface-muted); color: var(--foreground-primary); padding: 11px 14px; }
 .detail-actions .primary, .modal footer .primary { background: var(--accent-primary); color: white; }
 .danger-button { color: var(--danger) !important; background: #fdecec !important; }
